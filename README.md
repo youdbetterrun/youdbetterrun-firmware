@@ -12,6 +12,8 @@ There are separate repositories for the PCB and 3D models.
 - [PCB](https://github.com/youdbetterrun/youdbetterrun-pcb): The design files for the printed circuit board.
 - [3D](https://github.com/youdbetterrun/youdbetterrun-3d): 3D models that need to be 3D printed and assembly instructions.
 
+[Blog post about this project.](https://blog.marcelrobitaille.me/youdbetterrun/)
+
 ## Setup
 
 Create a file `include/secrets.h` with your Wi-Fi SSID and password:
