@@ -76,6 +76,16 @@ void printError(char const * const format, ...) {
 	} while (display.nextPage());
 }
 
+void printProgress(uint16_t const width) {
+	static const uint16_t HEIGHT = 2;
+	display.setPartialWindow(0, 0, display.width(), HEIGHT);
+	display.firstPage();
+	do {
+		display.fillScreen(GxEPD_WHITE);
+		display.fillRect(0, 0, width, HEIGHT, GxEPD_BLACK);
+	} while (display.nextPage());
+}
+
 // Print the time in the top right
 void printTime(const DateTime &now) {
 	static constexpr uint16_t PADDING{10};
@@ -274,5 +284,11 @@ void setup() {
 
 void loop() {
 	refresh();
-	delay(1000 * 60);
+	
+	for (uint16_t second{0}; second < 60; ++second)
+	{
+		Serial.print(".");
+		printProgress(second * display.width() / 60);
+		delay(1000);
+	}
 }
