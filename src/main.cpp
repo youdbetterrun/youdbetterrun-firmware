@@ -106,7 +106,7 @@ void printTime(const DateTime &now) {
 }
 
 void collectStops(DynamicJsonDocument &doc, String platform,
-		char result[][BUF_LEN], const DateTime &nowUtc) {
+		char result[][BUF_LEN], DateTime const &nowUtc) {
 	uint8_t i = 0;
 	for (JsonVariant stopEvent : doc["stopEvents"].as<JsonArray>()) {
 		if (i == NUM_STOPS) {
@@ -122,7 +122,9 @@ void collectStops(DynamicJsonDocument &doc, String platform,
 			: stopEvent["departureTimePlanned"];
 		DateTime const departureTime = DateTime(departureTimeStr.c_str());
 		TimeSpan const diff = departureTime - nowUtc;
-		int16_t const minutes = diff.totalseconds() / 60;
+		int32_t const seconds = diff.totalseconds();
+		// Serial.printf("Departure time: %s Stop diff: %u s\n", departureTimeStr.c_str(), seconds);
+		int16_t const minutes = seconds / 60;
 
 		String bus = stopEvent["transportation"]["number"];
 		Serial.printf("%s %s %s %d\n",
@@ -156,7 +158,7 @@ int fetchStops(DateTime const &nowUtc, DateTime &nowLocal) {
 		return 1;
 	}
 
-	Serial.printf("Size: %d\n", http.getSize());
+	Serial.printf("HTTP response size: %d\n", http.getSize());
 	DynamicJsonDocument doc(6'000);
 	DeserializationError error = deserializeJson(doc, http.getStream(),
 			DeserializationOption::Filter(filter));
@@ -168,6 +170,11 @@ int fetchStops(DateTime const &nowUtc, DateTime &nowLocal) {
 
 	String serverTime = doc["serverInfo"]["serverTime"];
 	nowLocal = DateTime(serverTime.c_str());
+
+	// Round to the closest minute
+	if (nowLocal.second() > 30) {
+		nowLocal = nowLocal + TimeSpan(60);
+	}
 
 	// The two platforms for this stop are a and e for whatever reason
 	collectStops(doc, "a", platform_a, nowUtc);
