@@ -187,8 +187,9 @@ int fetchStops(DateTime const &nowUtc, DateTime &nowLocal) {
 }
 
 DateTime getCurrentTime() {
-	while (!timeClient.update()) {
-		timeClient.forceUpdate();
+	while (!timeClient.forceUpdate()) {
+		Serial.println("Could not update NTP time. Trying again in 1s.");
+		delay(1000);
 	}
 
 	DateTime now(timeClient.getEpochTime());
