@@ -165,6 +165,7 @@ int fetchStops(DateTime const &nowUtc, DateTime &nowLocal) {
 
 	if (error) {
 		printError("[JSON] Deserialize failed: %s\n", error.f_str());
+		http.end();
 		return 1;
 	}
 
