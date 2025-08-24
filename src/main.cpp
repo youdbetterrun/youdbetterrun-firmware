@@ -306,7 +306,10 @@ void loop() {
 	for (uint16_t second{0}; second < 60; ++second)
 	{
 		Serial.print(".");
-		printProgress(second * display.width() / 60);
+
+		// Remove progress for now. The partial updates were adding artifacts to the
+		// full refresh.
+		// printProgress(second * display.width() / 60);
 		delay(1000);
 	}
 }
