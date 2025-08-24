@@ -302,9 +302,26 @@ void setup() {
 
 void loop() {
 	refresh();
+
+	// Calculate the number of seconds to wait so we line up on the minute for the
+	// next update
+	uint32_t msToWait = 60'000 - (timeClient.getSeconds() * 1000);
+
+	// Wait at least 30 seconds.
+	if (msToWait < 30'000) {
+		msToWait += 60'000;
+	}
+
+	// Start 4 seconds early because update takes about 4 seconds
+	msToWait -= 4'000;
+
+	uint32_t const startMillis = millis();
+	uint32_t const endMillis = millis() + msToWait;
+	Serial.printf("Next update in %u ms\n", msToWait);
+	Serial.printf("end millis %u ms\n", endMillis);
+	Serial.printf("current millis %lu ms\n", millis());
 	
-	for (uint16_t second{0}; second < 60; ++second)
-	{
+	while (millis() < endMillis) {
 		Serial.print(".");
 
 		// Remove progress for now. The partial updates were adding artifacts to the
