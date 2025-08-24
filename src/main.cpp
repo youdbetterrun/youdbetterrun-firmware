@@ -193,6 +193,8 @@ DateTime getCurrentTime() {
 	}
 
 	DateTime now(timeClient.getEpochTime());
+	Serial.print("Got current time: ");
+	Serial.println(timeClient.getFormattedTime());
 	return now;
 }
 
@@ -207,13 +209,18 @@ static constexpr uint16_t TEXT_BLOCK_WIDTH{270};
 static constexpr uint8_t NUM_RETRIES{3};
 
 void refresh() {
+	Serial.println();
 	Serial.println("Refresh");
+	Serial.printf("Free heap: %u bytes\n", ESP.getFreeHeap());
 
 	// Use NTP to get current UTC time and use API to get current local time.
 	// Current UTC time needed because stop events are in UTC.
 	// Current local time use to print time in the corner.
+	Serial.println("Getting current time...");
 	DateTime const nowUtc{getCurrentTime()};
 	DateTime nowLocal;
+
+	Serial.println("Fetching stops....");
 
 	for (uint8_t i{0};; i++) {
 		if (i == NUM_RETRIES) {
@@ -257,6 +264,9 @@ void refresh() {
 			display.print(0 == i ? " Out of city" : platform_a[i - 1]);
 		}
 	} while (display.nextPage());
+
+	Serial.print("Done refresh at ");
+	Serial.println(timeClient.getFormattedTime());
 }
 
 void setup() {
