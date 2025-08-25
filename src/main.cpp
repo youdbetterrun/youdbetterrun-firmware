@@ -2,7 +2,6 @@
 
 #define ENABLE_GxEPD2_GFX 0
 
-#include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecureBearSSL.h>
@@ -16,6 +15,10 @@
 #include "datetime.h"
 #include "certs.h"
 #include "secrets.h"
+
+#include "jimp_parsers.h"
+#define JIMP_IMPLEMENTATION
+#include "jimp.h"
 
 #if defined(ESP32) && defined(USE_HSPI_FOR_EPD)
 SPIClass hspi(HSPI);
@@ -38,9 +41,17 @@ BearSSL::WiFiClientSecure client;
 static constexpr size_t NUM_STOPS{9};
 static constexpr size_t BUF_LEN{30};
 
-char platform_a[NUM_STOPS][BUF_LEN];
-char platform_e[NUM_STOPS][BUF_LEN];
-static StaticJsonDocument<200> filter;
+struct FormattedPlatform {
+	char buffer[NUM_STOPS][BUF_LEN];
+	uint32_t count;
+};
+
+struct FormattedStops {
+	FormattedPlatform platform_a;
+	FormattedPlatform platform_e;
+} formattedStops{};
+
+Jimp jimp = {0};
 
 HTTPClient http;
 WiFiUDP ntpUDP;
@@ -105,46 +116,40 @@ void printTime(const DateTime &now) {
 	display.print(text);
 }
 
-void collectStops(DynamicJsonDocument &doc, String platform,
-		char result[][BUF_LEN], DateTime const &nowUtc) {
-	uint8_t i = 0;
-	for (JsonVariant stopEvent : doc["stopEvents"].as<JsonArray>()) {
-		if (i == NUM_STOPS) {
-			break;
-		}
-		if (platform != stopEvent["location"]["properties"]["platform"]) {
-			continue;
-		}
+bool addStop(ParsedStopEvent const &stop_event, DateTime const &nowUtc) {
+	if (stop_event.platform != 'a' && stop_event.platform != 'e') return true;
 
-		// Prefer departureTimeEstimated, fallback to departureTimePlanned.
-		String const departureTimeStr = stopEvent["departureTimeEstimated"]
-			? stopEvent["departureTimeEstimated"]
-			: stopEvent["departureTimePlanned"];
-		DateTime const departureTime = DateTime(departureTimeStr.c_str());
-		TimeSpan const diff = departureTime - nowUtc;
-		int32_t const seconds = diff.totalseconds();
-		// Serial.printf("Departure time: %s Stop diff: %u s\n", departureTimeStr.c_str(), seconds);
-		int16_t const minutes = seconds / 60;
+	FormattedPlatform &platform = stop_event.platform == 'a'
+		? formattedStops.platform_a : formattedStops.platform_e;
 
-		String bus = stopEvent["transportation"]["number"];
-		Serial.printf("%s %s %s %d\n",
-				platform.c_str(),
-				departureTimeStr.c_str(),
-				bus.c_str(),
-				minutes);
-
-		// Don't show busses more that left more than 2 minutes ago.
-		// Show if you just missed one though.
-		if (minutes < -2) {
-			continue;
-		}
-
-		snprintf(result[i++], BUF_LEN, "%-3s    %2d min", bus.c_str(), minutes);
+	if (platform.count == NUM_STOPS) {
+		return true;
 	}
-	while (i < NUM_STOPS) {
-		result[i++][0] = '\0';
-		continue;
+
+	// Prefer departureTimeEstimated, fallback to departureTimePlanned.
+	DateTime const departureTime = stop_event.hasDepartureTimeEstimated
+		? stop_event.departureTimeEstimated : stop_event.departureTimePlanned;
+
+	TimeSpan const diff = departureTime - nowUtc;
+	int32_t const seconds = diff.totalseconds();
+	int16_t const minutes = seconds / 60;
+
+	Serial.printf("Adding stop   platform: %c   time: %2d:%02d:%02d   number: %3d   minutes: %3d\n",
+			stop_event.platform,
+			departureTime.hour(), departureTime.minute(), departureTime.second(),
+			stop_event.number,
+			minutes);
+
+	// Don't show busses more that left more than 2 minutes ago.
+	// Show if you just missed one though.
+	if (minutes < -2) {
+		return true;
 	}
+
+	snprintf(platform.buffer[platform.count++], BUF_LEN,
+		"%-3d   %3d min", stop_event.number, minutes);
+
+	return true;
 }
 
 int fetchStops(DateTime const &nowUtc, DateTime &nowLocal) {
@@ -159,29 +164,22 @@ int fetchStops(DateTime const &nowUtc, DateTime &nowLocal) {
 	}
 
 	Serial.printf("HTTP response size: %d\n", http.getSize());
-	DynamicJsonDocument doc(6'000);
-	DeserializationError error = deserializeJson(doc, http.getStream(),
-			DeserializationOption::Filter(filter));
+	Stream &stream = http.getStream();
 
-	if (error) {
-		printError("[JSON] Deserialize failed: %s\n", error.f_str());
+	memset(&formattedStops, 0, sizeof(formattedStops));
+
+	jimp_begin(&jimp, stream);
+
+	if (!parse_payload(&jimp, nowLocal, nowUtc, addStop)) {
+		printError("[JSON] Failed to jimp\n");
 		http.end();
 		return 1;
 	}
-
-	String serverTime = doc["serverInfo"]["serverTime"];
-	nowLocal = DateTime(serverTime.c_str());
 
 	// Round to the closest minute
 	if (nowLocal.second() > 30) {
 		nowLocal = nowLocal + TimeSpan(60);
 	}
-
-	// The two platforms for this stop are a and e for whatever reason
-	collectStops(doc, "a", platform_a, nowUtc);
-	Serial.println();
-	collectStops(doc, "e", platform_e, nowUtc);
-	Serial.println();
 
 	http.end();
 	return 0;
@@ -241,11 +239,11 @@ void refresh() {
 	// Print the results
 	for (uint8_t i{0}; i < NUM_STOPS; i++) {
 		Serial.print("e ");
-		Serial.println(platform_e[i]);
+		Serial.println(formattedStops.platform_e.buffer[i]);
 	}
 	for (uint8_t i{0}; i < NUM_STOPS; i++) {
 		Serial.print("a ");
-		Serial.println(platform_a[i]);
+		Serial.println(formattedStops.platform_a.buffer[i]);
 	}
 
 	display.setFullWindow();
@@ -255,13 +253,15 @@ void refresh() {
 		printTime(nowLocal);
 		for (uint8_t i{0}; i < NUM_LINES; i++) {
 			display.setCursor(leftPadding, topPadding + i * LINE_SPACING);
-			display.print(0 == i ? "  Into city" : platform_e[i - 1]);
+			display.print(0 == i ? "  Into city" :
+				formattedStops.platform_e.buffer[i - 1]);
 		}
 		for (uint8_t i{0}; i < NUM_LINES; i++) {
 			display.setCursor(
 					display.width() / 2u + leftPadding,
 					topPadding + i * LINE_SPACING);
-			display.print(0 == i ? " Out of city" : platform_a[i - 1]);
+			display.print(0 == i ? " Out of city" :
+				formattedStops.platform_a.buffer[i - 1]);
 		}
 	} while (display.nextPage());
 
@@ -273,12 +273,6 @@ void setup() {
 	Serial1.begin(115200);
 	Serial.begin(115200);
 	display.init(0); // default 10ms reset pulse, e.g. for bare panels
-
-	filter["serverInfo"]["serverTime"] = true;
-	filter["stopEvents"][0]["departureTimePlanned"] = true;
-	filter["stopEvents"][0]["departureTimeEstimated"] = true;
-	filter["stopEvents"][0]["transportation"]["number"] = true;
-	filter["stopEvents"][0]["location"]["properties"]["platform"] = true;
 
 	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 

@@ -1,5 +1,6 @@
 src/datetime.cpp and src/datetime.h are adapted from https://github.com/adafruit/RTClib
 and are MIT licensed.
+src/jimp.h is adapted from https://github.com/tsoding/jim and is MIT licensed.
 
 BEGIN_MIT_LICENSE
 MIT License
