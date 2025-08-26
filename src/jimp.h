@@ -197,14 +197,7 @@ static bool jimp__parse_number(Jimp *jimp) {
     return found;
 }
 
-static Jimp_Token jimp__puncts[256] = {
-    jimp__puncts['{'] = JIMP_OCURLY,
-    jimp__puncts['}'] = JIMP_CCURLY,
-    jimp__puncts['['] = JIMP_OBRACKET,
-    jimp__puncts[']'] = JIMP_CBRACKET,
-    jimp__puncts[','] = JIMP_COMMA,
-    jimp__puncts[':'] = JIMP_COLON,
-};
+static Jimp_Token jimp__puncts[256] = {};
 
 static struct {
     Jimp_Token token;
@@ -326,6 +319,15 @@ static bool jimp__get_token(Jimp *jimp)
 
 void jimp_begin(Jimp *jimp, Stream &stream)
 {
+    // Initialize here for c++ support (c++ doesn't have array designated
+    // initializers)
+    jimp__puncts['{'] = JIMP_OCURLY,
+    jimp__puncts['}'] = JIMP_CCURLY,
+    jimp__puncts['['] = JIMP_OBRACKET,
+    jimp__puncts[']'] = JIMP_CBRACKET,
+    jimp__puncts[','] = JIMP_COMMA,
+    jimp__puncts[':'] = JIMP_COLON,
+
 #ifdef ARDUINO
     jimp->stream = &stream;
 #else
