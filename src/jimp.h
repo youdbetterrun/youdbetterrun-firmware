@@ -108,6 +108,7 @@ bool jimp_array_end(Jimp *jimp);
 
 bool jimp_skip_array(Jimp *jimp);
 bool jimp_skip_object(Jimp *jimp);
+bool jimp_skip_any(Jimp *jimp);
 
 /// Prints diagnostic at the current position of the parser.
 void jimp_diagf_(int const line, const char *fmt, ...);
@@ -131,6 +132,7 @@ static const char *jimp__token_kind(Jimp_Token token);
 static bool jimp__get_token(Jimp *jimp);
 static bool jimp__parse_number(Jimp *jimp);
 static void jimp__skip_whitespaces(Jimp *jimp);
+static bool jimp__skip_open_container(Jimp *jimp, Jimp_Token openToken, Jimp_Token closeToken);
 static void jimp__append_to_string(Jimp *jimp, char x);
 
 static void jimp__append_to_string(Jimp *jimp, char x)
@@ -548,27 +550,34 @@ static bool jimp__skip_open_container(Jimp *jimp, Jimp_Token openToken, Jimp_Tok
     return false;
 }
 
+bool jimp_skip_array(Jimp *jimp) {
+    if (!jimp__get_and_expect_token(jimp, JIMP_OBRACKET)) return false;
+    return jimp__skip_open_container(jimp, JIMP_OBRACKET, JIMP_CBRACKET);
+}
+
 bool jimp_skip_object(Jimp *jimp) {
     if (!jimp__get_and_expect_token(jimp, JIMP_OCURLY)) return false;
-    int depth = 1;
+    return jimp__skip_open_container(jimp, JIMP_OCURLY, JIMP_CCURLY);
+}
 
-    while (true) {
-        if (!jimp__get_token(jimp)) return false;
+bool jimp_skip_any(Jimp *jimp) {
+    if (!jimp__get_token(jimp)) return false;
 
-        if (jimp->token == JIMP_OCURLY) {
-            depth++;
-        }
-
-        if (jimp->token == JIMP_CCURLY) {
-            depth--;
-        }
-
-        if (depth == 0) {
-            return true;
-        }
+    switch (jimp->token) {
+    case JIMP_INVALID: {
+        jimp_diagf("Got invalid token");
+        return false;
     }
-
-    return false;
+    case JIMP_OCURLY: {
+        return jimp__skip_open_container(jimp, JIMP_OCURLY, JIMP_CCURLY);
+    }
+    case JIMP_OBRACKET: {
+        return jimp__skip_open_container(jimp, JIMP_OBRACKET, JIMP_CBRACKET);
+    }
+    default: {
+        return true;
+    }
+    }
 }
 
 #endif // JIMP_IMPLEMENTATION
