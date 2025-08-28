@@ -1,6 +1,6 @@
 #include "jimp_parsers.h"
 
-bool parse_server_info(Jimp *jimp, DateTime &serverLocalTime) {
+static bool parse_server_info(Jimp *jimp, DateTime &serverLocalTime) {
 	if (!jimp_object_begin(jimp)) return false;
 
 	while (jimp_object_member(jimp)) {
@@ -19,7 +19,7 @@ bool parse_server_info(Jimp *jimp, DateTime &serverLocalTime) {
 	return true;
 }
 
-bool parse_location_properties(Jimp *jimp, char * platform) {
+static bool parse_location_properties(Jimp *jimp, char * platform) {
 	if (!jimp_object_begin(jimp)) return false;
 
 	while (jimp_object_member(jimp)) {
@@ -36,7 +36,7 @@ bool parse_location_properties(Jimp *jimp, char * platform) {
 	return true;
 }
 
-bool parse_location(Jimp *jimp, char * platform) {
+static bool parse_location(Jimp *jimp, char * platform) {
 	if (!jimp_object_begin(jimp)) return false;
 
 	while (jimp_object_member(jimp)) {
@@ -69,7 +69,7 @@ bool parse_location(Jimp *jimp, char * platform) {
 	return true;
 }
 
-bool parse_transportation(Jimp *jimp, int * number) {
+static bool parse_transportation(Jimp *jimp, int * number) {
 	if (!jimp_object_begin(jimp)) return false;
 
 	while (jimp_object_member(jimp)) {
@@ -104,7 +104,7 @@ bool parse_transportation(Jimp *jimp, int * number) {
 	return true;
 }
 
-bool parse_stop_event(Jimp *jimp, DateTime const &nowUtc,
+static bool parse_stop_event(Jimp *jimp, DateTime const &nowUtc,
 		bool (*stopCallback)(ParsedStopEvent const &, DateTime const &)) {
 	ParsedStopEvent result{};
 	if (!jimp_object_begin(jimp)) return false;
@@ -142,7 +142,7 @@ bool parse_stop_event(Jimp *jimp, DateTime const &nowUtc,
 	return true;
 }
 
-bool parse_stop_events(Jimp *jimp, DateTime const & nowUtc, bool (*stopCallback)(ParsedStopEvent const &, DateTime const &)) {
+static bool parse_stop_events(Jimp *jimp, DateTime const & nowUtc, bool (*stopCallback)(ParsedStopEvent const &, DateTime const &)) {
 	if (!jimp_array_begin(jimp)) return false;
 
 	while (jimp_array_item(jimp)) {
