@@ -1,5 +1,5 @@
-#ifndef JIMP_PARSERS
-#define JIMP_PARSERS
+#ifndef STOP_PARSER
+#define STOP_PARSER
 
 #include "jimp.h"
 #include "datetime.h"
@@ -12,7 +12,7 @@ struct ParsedStopEvent {
 	DateTime departureTimeEstimated;
 };
 
-bool parse_payload(Jimp *jimp, DateTime &serverLocalTime, DateTime const &nowUtc,
+bool parse_stops(Jimp *jimp, DateTime &serverLocalTime, DateTime const &nowUtc,
 		bool (*stopCallback)(ParsedStopEvent const &, DateTime const &));
 
-#endif // JIMP_PARSERS
+#endif // STOP_PARSER

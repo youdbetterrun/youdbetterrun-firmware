@@ -1,4 +1,4 @@
-#include "jimp_parsers.h"
+#include "stop_parser.h"
 
 static bool parse_server_info(Jimp *jimp, DateTime &serverLocalTime) {
 	if (!jimp_object_begin(jimp)) return false;
@@ -154,7 +154,7 @@ static bool parse_stop_events(Jimp *jimp, DateTime const & nowUtc, bool (*stopCa
 	return true;
 }
 
-bool parse_payload(Jimp *jimp, DateTime &serverLocalTime, DateTime const &nowUtc,
+bool parse_stops(Jimp *jimp, DateTime &serverLocalTime, DateTime const &nowUtc,
 		bool (*stopCallback)(ParsedStopEvent const &, DateTime const &)) {
 	if (!jimp_object_begin(jimp)) return false;
 

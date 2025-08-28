@@ -16,7 +16,7 @@
 #include "certs.h"
 #include "secrets.h"
 
-#include "jimp_parsers.h"
+#include "stop_parser.h"
 #define JIMP_IMPLEMENTATION
 #include "jimp.h"
 
@@ -170,7 +170,7 @@ int fetchStops(DateTime const &nowUtc, DateTime &nowLocal) {
 
 	jimp_begin(&jimp, stream);
 
-	if (!parse_payload(&jimp, nowLocal, nowUtc, addStop)) {
+	if (!parse_stops(&jimp, nowLocal, nowUtc, addStop)) {
 		printError("[JSON] Failed to jimp\n");
 		http.end();
 		return 1;
