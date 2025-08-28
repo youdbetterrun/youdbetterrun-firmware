@@ -110,7 +110,7 @@ bool jimp_skip_array(Jimp *jimp);
 bool jimp_skip_object(Jimp *jimp);
 
 /// Prints diagnostic at the current position of the parser.
-void jimp_diagf_(int const line, Jimp *jimp, const char *fmt, ...);
+void jimp_diagf_(int const line, const char *fmt, ...);
 
 #define jimp_diagf(args...) jimp_diagf_(__LINE__, args)
 
@@ -234,7 +234,7 @@ static bool jimp__get_token(Jimp *jimp)
             // symbol mismatch.
             if (*symbol) {
                 jimp->token = JIMP_INVALID;
-                jimp_diagf(jimp, "ERROR: invalid symbol\n");
+                jimp_diagf("ERROR: invalid symbol\n");
                 return false;
             } else {
                 jimp->token = jimp__symbols[i].token;
@@ -251,7 +251,7 @@ static bool jimp__get_token(Jimp *jimp)
             int c = jimp__get(jimp);
             if (c == -1) {
                 jimp->token = JIMP_INVALID;
-                jimp_diagf(jimp, "ERROR: jimp__get invalid %d\n", c);
+                jimp_diagf("ERROR: jimp__get invalid %d\n", c);
                 return false;
             }
             // TODO: support all the JSON escape sequences defined in the spec
@@ -262,7 +262,7 @@ static bool jimp__get_token(Jimp *jimp)
                 if (jimp__peek(jimp) == -1)
                 {
                     jimp->token = JIMP_INVALID;
-                    jimp_diagf(jimp, "ERROR: unfinished escape sequence\n");
+                    jimp_diagf("ERROR: unfinished escape sequence\n");
                     return false;
                 }
                 switch ((char)jimp__peek(jimp)) {
@@ -288,7 +288,7 @@ static bool jimp__get_token(Jimp *jimp)
                     break;
                 default:
                     jimp->token = JIMP_INVALID;
-                    jimp_diagf(jimp, "ERROR: invalid escape sequence\n");
+                    jimp_diagf("ERROR: invalid escape sequence\n");
                     return false;
                 }
                 break;
@@ -304,7 +304,7 @@ static bool jimp__get_token(Jimp *jimp)
             }
         }
         jimp->token = JIMP_INVALID;
-        jimp_diagf(jimp, "ERROR: unfinished string\n");
+        jimp_diagf("ERROR: unfinished string\n");
         return false;
     }
 
@@ -337,7 +337,7 @@ void jimp_begin(Jimp *jimp, Stream &stream)
     jimp->last_char = -1;
 }
 
-void jimp_diagf_(int const line, Jimp *jimp, const char *fmt, ...)
+void jimp_diagf_(int const line, const char *fmt, ...)
 {
     char buf[256]; // pick a size that fits your diagnostics
     va_list args;
@@ -390,7 +390,7 @@ bool jimp_array_item(Jimp *jimp)
 
     if (c == -1) {
         jimp->token = JIMP_INVALID;
-        jimp_diagf(jimp, "ERROR: peeking jimp array\n");
+        jimp_diagf("ERROR: peeking jimp array\n");
         return false;
     }
     
@@ -415,7 +415,7 @@ bool jimp_array_item(Jimp *jimp)
 
 void jimp_unknown_member(Jimp *jimp)
 {
-    jimp_diagf(jimp, "\n\n[ERROR]: unexpected object member `%s`\n\n", jimp->string);
+    jimp_diagf("\n\n[ERROR]: unexpected object member `%s`\n\n", jimp->string);
 }
 
 bool jimp_object_begin(Jimp *jimp)
@@ -430,7 +430,7 @@ bool jimp_object_member(Jimp *jimp)
 
     if (c == -1) {
         jimp->token = JIMP_INVALID;
-        jimp_diagf(jimp, "ERROR: peeking jimp object\n");
+        jimp_diagf("ERROR: peeking jimp object\n");
         return false;
     }
     if ((char)c == ',') {
@@ -467,7 +467,7 @@ bool jimp_bool(Jimp *jimp)
     } else if (jimp->token == JIMP_FALSE) {
         jimp->boolean = false;
     } else {
-        jimp_diagf(jimp, "ERROR: expected boolean, but got `%s`\n", jimp__token_kind(jimp->token));
+        jimp_diagf("ERROR: expected boolean, but got `%s`\n", jimp__token_kind(jimp->token));
         return false;
     }
     return true;
@@ -520,24 +520,23 @@ static bool jimp__get_and_expect_token(Jimp *jimp, Jimp_Token token)
 static bool jimp__expect_token(Jimp *jimp, Jimp_Token token)
 {
     if (jimp->token != token) {
-        jimp_diagf(jimp, "ERROR: expected %s, but got %s\n", jimp__token_kind(token), jimp__token_kind(jimp->token));
+        jimp_diagf("ERROR: expected %s, but got %s\n", jimp__token_kind(token), jimp__token_kind(jimp->token));
         return false;
     }
     return true;
 }
 
-bool jimp_skip_array(Jimp *jimp) {
-    if (!jimp__get_and_expect_token(jimp, JIMP_OBRACKET)) return false;
+static bool jimp__skip_open_container(Jimp *jimp, Jimp_Token openToken, Jimp_Token closeToken) {
     int depth = 1;
 
     while (true) {
         if (!jimp__get_token(jimp)) return false;
 
-        if (jimp->token == JIMP_OBRACKET) {
+        if (jimp->token == openToken) {
             depth++;
         }
 
-        if (jimp->token == JIMP_CBRACKET) {
+        if (jimp->token == closeToken) {
             depth--;
         }
 
