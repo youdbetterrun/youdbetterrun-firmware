@@ -12,7 +12,12 @@ struct ParsedStopEvent {
 	DateTime departureTimeEstimated;
 };
 
-bool parse_stops(Jimp *jimp, DateTime &serverLocalTime, DateTime const &nowUtc,
-		bool (*stopCallback)(ParsedStopEvent const &, DateTime const &));
+struct StopParserUserData {
+	DateTime &serverLocalTime;
+	DateTime const &nowUtc;
+	bool (*stopCallback)(ParsedStopEvent const &, DateTime const &);
+};
+
+bool parse_stops(Jimp *jimp);
 
 #endif // STOP_PARSER

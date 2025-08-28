@@ -1,12 +1,13 @@
 #include "stop_parser.h"
 
-static bool parse_server_info(Jimp *jimp, DateTime &serverLocalTime) {
+static bool parse_server_info(Jimp *jimp) {
 	if (!jimp_object_begin(jimp)) return false;
 
 	while (jimp_object_member(jimp)) {
 		if (strcmp(jimp->string, "serverTime") == 0) {
 			if (!jimp_string(jimp)) return false;
-			serverLocalTime = DateTime(jimp->string);
+			reinterpret_cast<StopParserUserData*>(jimp->user_data)->serverLocalTime =
+				DateTime(jimp->string);
 		} else if (strcmp(jimp->string, "calcTime") == 0) {
 			if (!jimp_number(jimp)) return false;
 		} else {
@@ -104,8 +105,7 @@ static bool parse_transportation(Jimp *jimp, int * number) {
 	return true;
 }
 
-static bool parse_stop_event(Jimp *jimp, DateTime const &nowUtc,
-		bool (*stopCallback)(ParsedStopEvent const &, DateTime const &)) {
+static bool parse_stop_event(Jimp *jimp) {
 	ParsedStopEvent result{};
 	if (!jimp_object_begin(jimp)) return false;
 
@@ -137,16 +137,19 @@ static bool parse_stop_event(Jimp *jimp, DateTime const &nowUtc,
 
 	if (!jimp_object_end(jimp)) return false;
 
-	stopCallback(result, nowUtc);
+	StopParserUserData * const user_data =
+		reinterpret_cast<StopParserUserData *>(jimp->user_data);
+
+	user_data->stopCallback(result, user_data->nowUtc);
 
 	return true;
 }
 
-static bool parse_stop_events(Jimp *jimp, DateTime const & nowUtc, bool (*stopCallback)(ParsedStopEvent const &, DateTime const &)) {
+static bool parse_stop_events(Jimp *jimp) {
 	if (!jimp_array_begin(jimp)) return false;
 
 	while (jimp_array_item(jimp)) {
-		if (!parse_stop_event(jimp, nowUtc, stopCallback)) return false;
+		if (!parse_stop_event(jimp)) return false;
 	}
 
 	if (!jimp_array_end(jimp)) return false;
@@ -154,13 +157,12 @@ static bool parse_stop_events(Jimp *jimp, DateTime const & nowUtc, bool (*stopCa
 	return true;
 }
 
-bool parse_stops(Jimp *jimp, DateTime &serverLocalTime, DateTime const &nowUtc,
-		bool (*stopCallback)(ParsedStopEvent const &, DateTime const &)) {
+bool parse_stops(Jimp *jimp) {
 	if (!jimp_object_begin(jimp)) return false;
 
 	while (jimp_object_member(jimp)) {
 		if (strcmp(jimp->string, "serverInfo") == 0) {
-			if (!parse_server_info(jimp, serverLocalTime)) return false;
+			if (!parse_server_info(jimp)) return false;
 		} else if (strcmp(jimp->string, "version") == 0) {
 			if (!jimp_string(jimp)) return false;
 		} else if (strcmp(jimp->string, "systemMessages") == 0) {
@@ -169,7 +171,7 @@ bool parse_stops(Jimp *jimp, DateTime &serverLocalTime, DateTime const &nowUtc,
 		} else if (strcmp(jimp->string, "locations") == 0) {
 			if (!jimp_skip_array(jimp)) return false;
 		} else if (strcmp(jimp->string, "stopEvents") == 0) {
-			if (!parse_stop_events(jimp, nowUtc, stopCallback)) return false;
+			if (!parse_stop_events(jimp)) return false;
 		} else {
 			jimp_unknown_member(jimp);
 			return false;

@@ -63,11 +63,13 @@ typedef struct {
     size_t string_capacity;
     double number;
     bool boolean;
+
+    void * user_data;
 } Jimp;
 
 // TODO: how do null-s fit into this entire system?
 
-void jimp_begin(Jimp *jimp, Stream &stream);
+void jimp_begin(Jimp *jimp, Stream &stream, void * user_data = nullptr);
 
 /// If succeeds puts the freshly parsed boolean into jimp->boolean.
 /// Any consequent calls to the jimp_* functions may invalidate jimp->boolean.
@@ -319,7 +321,7 @@ static bool jimp__get_token(Jimp *jimp)
     return false;
 }
 
-void jimp_begin(Jimp *jimp, Stream &stream)
+void jimp_begin(Jimp *jimp, Stream &stream, void * user_data)
 {
     // Initialize here for c++ support (c++ doesn't have array designated
     // initializers)
@@ -337,6 +339,8 @@ void jimp_begin(Jimp *jimp, Stream &stream)
     jimp->offset = -1;
 #endif
     jimp->last_char = -1;
+
+    jimp->user_data = user_data;
 }
 
 void jimp_diagf_(int const line, const char *fmt, ...)

@@ -168,9 +168,15 @@ int fetchStops(DateTime const &nowUtc, DateTime &nowLocal) {
 
 	memset(&formattedStops, 0, sizeof(formattedStops));
 
-	jimp_begin(&jimp, stream);
+	StopParserUserData stopParserUserData = StopParserUserData{
+		.serverLocalTime = nowLocal,
+		.nowUtc = nowUtc,
+		.stopCallback = addStop,
+	};
 
-	if (!parse_stops(&jimp, nowLocal, nowUtc, addStop)) {
+	jimp_begin(&jimp, stream, &stopParserUserData);
+
+	if (!parse_stops(&jimp)) {
 		printError("[JSON] Failed to jimp\n");
 		http.end();
 		return 1;
