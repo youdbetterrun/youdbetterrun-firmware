@@ -2,9 +2,17 @@
 
 #define ENABLE_GxEPD2_GFX 0
 
+#ifdef ESP32
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#define WiFiClientSecureType WiFiClientSecure
+#else
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecureBearSSL.h>
+#define WiFiClientSecureType BearSSL::WiFiClientSecure
+#endif
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 
@@ -37,7 +45,14 @@ GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, MAX_HEIGHT(GxEPD2_DRIVER_CLASS)> displ
 #undef MAX_HEIGHT
 #endif
 
-BearSSL::WiFiClientSecure client;
+#if defined(ARDUINO_ARCH_ESP32)
+#define MAX_DISPLAY_BUFFER_SIZE (65536ul) // e.g.
+#define MAX_HEIGHT(EPD) (EPD::HEIGHT <= MAX_DISPLAY_BUFFER_SIZE / (EPD::WIDTH / 8) ? EPD::HEIGHT : MAX_DISPLAY_BUFFER_SIZE / (EPD::WIDTH / 8))
+// GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, GxEPD2_DRIVER_CLASS::HEIGHT> display(GxEPD2_DRIVER_CLASS(/*CS=5*/ SS, /*DC=*/ 17, /*RST=*/ 16, /*BUSY=*/ 4)); // GDEQ0583T31 648x480, UC8179, (P583010-MF1-B)
+GxEPD2_DISPLAY_CLASS<GxEPD2_DRIVER_CLASS, GxEPD2_DRIVER_CLASS::HEIGHT> display(GxEPD2_DRIVER_CLASS(/*CS=5*/ SS, /*DC=*/ 8, /*RST=*/ 9, /*BUSY=*/ 10)); // GDEQ0583T31 648x480, UC8179, (P583010-MF1-B)
+#endif
+
+WiFiClientSecureType client;
 static constexpr size_t NUM_STOPS{9};
 static constexpr size_t BUF_LEN{30};
 
@@ -275,25 +290,49 @@ void refresh() {
 	Serial.println(timeClient.getFormattedTime());
 }
 
+char * e2s(int Status){
+    switch(Status){
+        case WL_IDLE_STATUS:
+        return "WL_IDLE_STATUS";
+        case WL_SCAN_COMPLETED:
+        return "WL_SCAN_COMPLETED";
+        case WL_NO_SSID_AVAIL:
+        return "WL_NO_SSID_AVAIL";
+        case WL_CONNECT_FAILED:
+        return "WL_CONNECT_FAILED";
+        case WL_CONNECTION_LOST:
+        return "WL_CONNECTION_LOST";
+        case WL_CONNECTED:
+        return "WL_CONNECTED";
+        case WL_DISCONNECTED:
+        return "WL_DISCONNECTED";
+    }
+}
+
 void setup() {
 	Serial1.begin(115200);
 	Serial.begin(115200);
 	display.init(0); // default 10ms reset pulse, e.g. for bare panels
 
+	WiFi.mode(WIFI_STA);
 	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+	// https://forum.arduino.cc/t/no-wifi-connect-with-esp32-c3-super-mini/1324046/12
+	WiFi.setTxPower(WIFI_POWER_8_5dBm);
 
 	printError("Connecting to WiFi...");
 
 	while (WiFi.status() != WL_CONNECTED)
 	{
 		delay(500);
-		Serial.print(".");
+		Serial.printf("Connecting to WiFi %s\n", e2s(WiFi.status()));
 	}
 
 	printError("IP Address: %s", WiFi.localIP().toString().c_str());
 	Serial.printf("%s\n", errorBuffer);
 
-	client.setFingerprint(fingerprint_fahrtauskunft_avv_augsburg_de);
+	client.setInsecure();
+	// client.setFingerprint(fingerprint_fahrtauskunft_avv_augsburg_de);
+	// client.getFingerprintSHA256(fingerprint_fahrtauskunft_avv_augsburg_de);
 
 	timeClient.begin();
 	// Stop events are in UTC.
@@ -320,7 +359,7 @@ void loop() {
 	Serial.printf("Next update in %u ms\n", msToWait);
 	Serial.printf("end millis %u ms\n", endMillis);
 	Serial.printf("current millis %lu ms\n", millis());
-	
+
 	while (millis() < endMillis) {
 		Serial.print(".");
 
